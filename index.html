@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CS-AI — demo embed widget</title>
+    <script src="http://localhost:9100/widget-static/widget.js" defer></script>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, sans-serif;
+        line-height: 1.5;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 2rem clamp(1rem, 4vw, 3rem);
+        max-width: 42rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 600;
+      }
+      .hint {
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+        font-size: 0.875rem;
+      }
+      .hint code {
+        font-size: 0.8em;
+      }
+      .err {
+        border-color: color-mix(in srgb, #dc2626 40%, transparent);
+        background: color-mix(in srgb, #dc2626 8%, transparent);
+      }
+      ul {
+        padding-left: 1.25rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Demo situs pihak ketiga</h1>
+    <p>
+      Halaman statis ini memuat bundle widget dari API Anda. Setelah
+      <code>config.js</code> valid, tombol chat muncul di pojok kanan bawah
+      (Shadow DOM).
+    </p>
+
+    <div id="banner-missing" class="hint err" hidden>
+      <strong>Belum ada <code>config.js</code>.</strong> Jalankan:
+      <pre style="margin: 0.5rem 0 0; white-space: pre-wrap">
+cp config.example.js config.js</pre
+      >
+      lalu edit <code>publicId</code> dan <code>siteKey</code>.
+    </div>
+
+    <div id="banner-incomplete" class="hint err" hidden>
+      <strong>Konfigurasi belum lengkap.</strong> Buka
+      <code>config.js</code> dan ganti placeholder <code>GANTI_*</code> dengan
+      nilai dari admin.
+    </div>
+
+    <div class="hint">
+      <strong>Checklist</strong>
+      <ul>
+        <li>
+          API jalan; bundle ada di
+          <code>{apiBaseUrl}/widget-static/widget.js</code> (jalankan
+          <code>npm run build:widget</code> di <code>cs-ai-api</code> jika
+          perlu).
+        </li>
+        <li>
+          Origin halaman ini ada di allowed origins widget (mis.
+          <code>http://localhost:5173</code>).
+        </li>
+      </ul>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+      (function () {
+        var cfg = window.__CS_AI_WIDGET_CONFIG__;
+        var missing = !cfg;
+        var incomplete =
+          !missing &&
+          (!cfg.apiBaseUrl ||
+            !cfg.publicId ||
+            !cfg.siteKey ||
+            String(cfg.publicId).includes("GANTI") ||
+            String(cfg.siteKey).includes("GANTI"));
+
+        var elMiss = document.getElementById("banner-missing");
+        var elInc = document.getElementById("banner-incomplete");
+        if (missing) {
+          elMiss.hidden = false;
+          return;
+        }
+        if (incomplete) {
+          elInc.hidden = false;
+          return;
+        }
+
+        var base = String(cfg.apiBaseUrl).replace(/\/$/, "");
+        var script = document.createElement("script");
+        script.src = base + "/widget-static/widget.js";
+        script.defer = true;
+        script.onerror = function () {
+          elInc.textContent =
+            "Gagal memuat widget.js dari " +
+            script.src +
+            ". Pastikan API menyajikan /widget-static/widget.js.";
+          elInc.hidden = false;
+        };
+        script.onload = function () {
+          if (!window.CsAiWidget) {
+            elInc.textContent =
+              "Script ter-load tapi window.CsAiWidget tidak ada.";
+            elInc.hidden = false;
+            return;
+          }
+          window.CsAiWidget.init({
+            apiBaseUrl: base,
+            publicId: cfg.publicId,
+            siteKey: cfg.siteKey,
+          });
+        };
+        document.body.appendChild(script);
+      })();
+    </script>
+  </body>
+</html>

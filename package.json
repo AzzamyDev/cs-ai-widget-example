@@ -1,0 +1,9 @@
+{
+  "name": "cs-ai-implementation",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Halaman demo embed widget CS-AI untuk situs pihak ketiga",
+  "scripts": {
+    "start": "npx --yes serve@14 . -l 5173"
+  }
+}
