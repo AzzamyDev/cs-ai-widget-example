@@ -11,9 +11,10 @@ Widget chat CS-AI adalah embed JavaScript yang berjalan dalam **Shadow DOM** seh
 3. [Next.js / React (SPA)](#3-nextjs--react-spa)
 4. [Konfigurasi Init](#4-konfigurasi-init)
 5. [Branding & Tampilan](#5-branding--tampilan)
-6. [Allowed Origins](#6-allowed-origins)
-7. [Menjalankan Demo Lokal](#7-menjalankan-demo-lokal)
-8. [Keamanan Site Key](#8-keamanan-site-key)
+6. [Nginx & reverse proxy](#6-nginx--reverse-proxy)
+7. [Allowed Origins](#7-allowed-origins)
+8. [Menjalankan Demo Lokal](#8-menjalankan-demo-lokal)
+9. [Keamanan Site Key](#9-keamanan-site-key)
 
 ---
 
@@ -137,7 +138,7 @@ CsAiWidget.init(options)
 
 | Parameter    | Tipe          | Wajib | Keterangan                                                                 |
 |--------------|---------------|-------|----------------------------------------------------------------------------|
-| `apiBaseUrl` | `string`      | ✅    | Base URL API CS-AI, tanpa trailing slash. Contoh: `https://api.yourdomain.com` |
+| `apiBaseUrl` | `string`      | ⚠️    | Base URL API (tanpa trailing slash). Wajib kecuali `data-api-url` pada script atau script `/widget-static/` same-origin. Lihat [§6 Nginx](#6-nginx--reverse-proxy). |
 | `publicId`   | `string`      | ✅    | ID publik widget, didapat dari halaman pengaturan widget di Admin           |
 | `siteKey`    | `string`      | ✅    | Format: `publicId.secret` — didapat saat buat/rotasi widget                |
 | `container`  | `HTMLElement` | ❌    | Target mount widget. Default: `document.body`                              |
@@ -174,7 +175,70 @@ Branding dikonfigurasi di **Admin → Pengaturan → Widget chat → Edit**, buk
 
 ---
 
-## 6. Allowed Origins
+## 6. Nginx & reverse proxy
+
+Panduan lengkap (ID/EN) di panel admin: **Dokumentasi integrasi → Widget chat → Nginx & reverse proxy**.
+
+Widget memanggil `{apiBaseUrl}/widget/...`, `/chat/...`, dan Socket.IO di `/socket.io` (atau `/api/socket.io` jika API di subpath). **Proxy hanya `/widget-static/` tidak cukup** jika `apiBaseUrl` mengarah ke domain situs Anda.
+
+### Same-origin (`apiBaseUrl` = domain situs)
+
+```html
+<script src="/widget-static/widget.js" defer></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    window.CsAiWidget?.init({
+      apiBaseUrl: window.location.origin,
+      publicId: 'YOUR_PUBLIC_ID',
+      siteKey: 'YOUR_SITE_KEY',
+      locale: 'id',
+    });
+  });
+</script>
+```
+
+Nginx — static:
+
+```nginx
+location /widget-static/ {
+    proxy_pass https://cs-ai-api.example.com/widget-static/;
+    proxy_set_header Host cs-ai-api.example.com;
+    proxy_ssl_server_name on;
+}
+```
+
+Nginx — route API (wajib untuk pola di atas):
+
+```nginx
+location ~ ^/(widget/|chat/|socket\.io) {
+    proxy_pass https://cs-ai-api.example.com;
+    proxy_http_version 1.1;
+    proxy_set_header Host cs-ai-api.example.com;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_ssl_server_name on;
+}
+```
+
+### Hanya static di-proxy (API langsung)
+
+```html
+<script src="https://your-site.com/widget-static/widget.js"
+        data-api-url="https://cs-ai-api.example.com" defer></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    window.CsAiWidget?.init({
+      publicId: 'YOUR_PUBLIC_ID',
+      siteKey: 'YOUR_SITE_KEY',
+      locale: 'id',
+    });
+  });
+</script>
+```
+
+---
+
+## 7. Allowed Origins
 
 Widget hanya bisa dimuat dari origin yang terdaftar. Tambahkan origin situs Anda di Admin → **Pengaturan → Widget chat → Edit → Allowed Origins**.
 
@@ -189,7 +253,7 @@ Widget hanya bisa dimuat dari origin yang terdaftar. Tambahkan origin situs Anda
 
 ---
 
-## 7. Menjalankan Demo Lokal
+## 8. Menjalankan Demo Lokal
 
 ```bash
 # 1. Build widget
@@ -210,7 +274,7 @@ npm start
 
 ---
 
-## 8. Keamanan Site Key
+## 9. Keamanan Site Key
 
 - **Jangan commit** `config.js` atau file env yang berisi `siteKey` ke repositori publik
 - `config.js` sudah masuk `.gitignore` di folder ini
